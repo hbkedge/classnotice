@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教室使用通知 - 前台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .admin-link {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .admin-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 1.1em;
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .admin-link a:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.2em;
+        }
+
+        .notice-list {
+            display: grid;
+            gap: 20px;
+        }
+
+        .notice-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .notice-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        .notice-field {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .notice-label {
+            font-weight: bold;
+            color: #555;
+            min-width: 80px;
+            margin-right: 15px;
+        }
+
+        .notice-value {
+            color: #333;
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 20px;
+            transition: opacity 0.3s;
+        }
+
+        .refresh-btn:hover {
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .notice-field {
+                flex-direction: column;
+            }
+
+            .notice-label {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>電腦教室使用狀況通知</h1>
+        
+        <div id="loading" class="loading">載入中...</div>
+        <div id="noticeList" class="notice-list" style="display: none;">
+            <!-- 通知列表將在這裡顯示 -->
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Supabase 配置
+        const SUPABASE_URL = 'https://bzptebmzniimfgfbrlru.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6cHRlYm16bmlpbWZnZmJybHJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyMTk0MTEsImV4cCI6MjA3Nzc5NTQxMX0.-hOfnGm09cLYg5HCos-nTB1b5VB5UX9mU5aYlpsjry0';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // DOM 元素
+        const loadingEl = document.getElementById('loading');
+        const noticeListEl = document.getElementById('noticeList');
+
+        // 載入通知列表
+        async function loadNotices() {
+            try {
+                loadingEl.style.display = 'block';
+                noticeListEl.style.display = 'none';
+
+                // 從 Supabase 讀取數據
+                const { data, error } = await supabase
+                    .from('class_notices')
+                    .select('*')
+                    .order('date', { ascending: true })
+                    .order('time', { ascending: true });
+
+                if (error) {
+                    throw error;
+                }
+
+                loadingEl.style.display = 'none';
+                
+                if (data && data.length > 0) {
+                    displayNotices(data);
+                } else {
+                    displayEmptyState();
+                }
+            } catch (error) {
+                console.error('載入錯誤:', error);
+                loadingEl.innerHTML = '<p style="color: red;">載入失敗，請稍後再試</p>';
+            }
+        }
+
+        // 顯示通知列表
+        function displayNotices(notices) {
+            noticeListEl.innerHTML = '';
+            noticeListEl.style.display = 'grid';
+
+            notices.forEach(notice => {
+                const card = document.createElement('div');
+                card.className = 'notice-card';
+                
+                card.innerHTML = `
+                    <div class="notice-field">
+                        <span class="notice-label">日期：</span>
+                        <span class="notice-value">${notice.date || '未設定'}</span>
+                    </div>
+                    <div class="notice-field">
+                        <span class="notice-label">時間：</span>
+                        <span class="notice-value">${notice.time || '未設定'}</span>
+                    </div>
+                    <div class="notice-field">
+                        <span class="notice-label">地點：</span>
+                        <span class="notice-value">${notice.location || '未設定'}</span>
+                    </div>
+                    <div class="notice-field">
+                        <span class="notice-label">使用班級：</span>
+                        <span class="notice-value">${notice.class || '未設定'}</span>
+                    </div>
+                    ${notice.remark ? `
+                    <div class="notice-field">
+                        <span class="notice-label">備註：</span>
+                        <span class="notice-value">${notice.remark}</span>
+                    </div>
+                    ` : ''}
+                `;
+                
+                noticeListEl.appendChild(card);
+            });
+
+            // 添加刷新按鈕
+            const refreshBtn = document.createElement('button');
+            refreshBtn.className = 'refresh-btn';
+            refreshBtn.textContent = '重新載入';
+            refreshBtn.style.cssText = 'width: 100%; margin-top: 20px;';
+            refreshBtn.onclick = loadNotices;
+            noticeListEl.appendChild(refreshBtn);
+        }
+
+        // 顯示空狀態
+        function displayEmptyState() {
+            noticeListEl.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <p>目前沒有通知</p>
+                </div>
+            `;
+            noticeListEl.style.display = 'block';
+        }
+
+        // 初始化
+        loadNotices();
+
+        // 設置自動刷新（每30秒）
+        setInterval(loadNotices, 30000);
+    </script>
+</body>
+</html>
+
