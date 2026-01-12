@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,7 +24,7 @@
             margin: 0 auto;
             background: white;
             border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
             padding: 30px;
         }
 
@@ -34,6 +35,7 @@
             font-size: 2.5em;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -74,13 +76,13 @@
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             border-radius: 10px;
             padding: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             transition: transform 0.3s, box-shadow 0.3s;
         }
 
         .notice-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
         }
 
         .notice-field {
@@ -148,10 +150,11 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>電腦教室使用狀況通知</h1>
-        
+
         <div id="loading" class="loading">載入中...</div>
         <div id="noticeList" class="notice-list" style="display: none;">
             <!-- 通知列表將在這裡顯示 -->
@@ -160,11 +163,23 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        console.log('🔍 開始初始化 Supabase 連接...');
+
         // Supabase 配置
-        const SUPABASE_URL = 'https://gtokauywjdcnqmlxugur.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0b2thdXl3amRjbnFtbHh1Z3VyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNDg1OTEsImV4cCI6MjA3NjcyNDU5MX0.1zihmDGER5PDeX41XCorsLqeh4Dks26cZq00BdpgkC4';
-        
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const SUPABASE_URL = 'https://bzptebmzniimfgfbrlru.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6cHRlYm16bmlpbWZnZmJybHJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyMTk0MTEsImV4cCI6MjA3Nzc5NTQxMX0.-hOfnGm09cLYg5HCos-nTB1b5VB5UX9mU5aYlpsjry0';
+
+        // 檢查 Supabase 客戶端是否載入
+        if (!window.supabase) {
+            console.error('❌ Supabase 客戶端未載入！請檢查網路連接。');
+            alert('錯誤：Supabase 客戶端載入失敗，請重新整理頁面或檢查網路連接。');
+        } else {
+            console.log('✅ Supabase 客戶端已載入');
+        }
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log('✅ Supabase 客戶端已創建');
+        console.log('📍 連接到:', SUPABASE_URL);
 
         // DOM 元素
         const loadingEl = document.getElementById('loading');
@@ -173,30 +188,63 @@
         // 載入通知列表
         async function loadNotices() {
             try {
+                console.log('📡 開始載入通知資料...');
                 loadingEl.style.display = 'block';
                 noticeListEl.style.display = 'none';
 
                 // 從 Supabase 讀取數據
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('class_notices')
                     .select('*')
                     .order('date', { ascending: true })
                     .order('time', { ascending: true });
 
                 if (error) {
+                    console.error('❌ Supabase 查詢錯誤:', error);
+                    console.error('錯誤詳情:', {
+                        message: error.message,
+                        details: error.details,
+                        hint: error.hint,
+                        code: error.code
+                    });
                     throw error;
                 }
 
+                console.log('✅ 資料載入成功，共', data ? data.length : 0, '筆記錄');
                 loadingEl.style.display = 'none';
-                
+
                 if (data && data.length > 0) {
                     displayNotices(data);
                 } else {
+                    console.log('ℹ️ 資料表為空');
                     displayEmptyState();
                 }
             } catch (error) {
-                console.error('載入錯誤:', error);
-                loadingEl.innerHTML = '<p style="color: red;">載入失敗，請稍後再試</p>';
+                console.error('❌ 載入錯誤:', error);
+
+                // 顯示詳細錯誤訊息
+                let errorMessage = '<p style="color: red; padding: 20px; text-align: center;">';
+                errorMessage += '<strong>⚠️ 資料載入失敗</strong><br><br>';
+                errorMessage += '<strong>錯誤訊息：</strong>' + (error.message || '未知錯誤') + '<br><br>';
+
+                // 根據錯誤類型提供建議
+                if (error.message && error.message.includes('relation')) {
+                    errorMessage += '<strong>可能原因：</strong>資料表 "class_notices" 不存在<br>';
+                    errorMessage += '<strong>解決方案：</strong>請在 Supabase Dashboard 執行 database_setup.sql<br>';
+                } else if (error.message && error.message.includes('permission')) {
+                    errorMessage += '<strong>可能原因：</strong>資料表權限設定錯誤<br>';
+                    errorMessage += '<strong>解決方案：</strong>請檢查 Row Level Security (RLS) 政策設定<br>';
+                } else if (error.message && error.message.includes('network')) {
+                    errorMessage += '<strong>可能原因：</strong>網路連接問題<br>';
+                    errorMessage += '<strong>解決方案：</strong>請檢查網路連接並重新整理頁面<br>';
+                } else {
+                    errorMessage += '<strong>建議：</strong>請開啟瀏覽器開發者工具 (F12) 查看詳細錯誤訊息<br>';
+                }
+
+                errorMessage += '<br><button onclick="location.reload()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">🔄 重新載入</button>';
+                errorMessage += '</p>';
+
+                loadingEl.innerHTML = errorMessage;
             }
         }
 
@@ -208,7 +256,7 @@
             notices.forEach(notice => {
                 const card = document.createElement('div');
                 card.className = 'notice-card';
-                
+
                 card.innerHTML = `
                     <div class="notice-field">
                         <span class="notice-label">日期：</span>
@@ -233,7 +281,7 @@
                     </div>
                     ` : ''}
                 `;
-                
+
                 noticeListEl.appendChild(card);
             });
 
@@ -264,8 +312,5 @@
         setInterval(loadNotices, 30000);
     </script>
 </body>
+
 </html>
-
-
-
-
